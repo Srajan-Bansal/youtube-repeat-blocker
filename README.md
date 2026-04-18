@@ -93,11 +93,23 @@ This extension:
 - Stores all data locally using `chrome.storage.local`
 - Only runs on `youtube.com`
 
-## Support the Project
+---
 
-If this extension saves you from YouTube recommendation fatigue, consider supporting its development:
+<div align="center">
 
-[![Support via Razorpay](https://img.shields.io/badge/Support-Razorpay-2962FF?logo=razorpay&logoColor=white)](https://razorpay.me/@srajanbansal)
+### If this extension helped you, consider supporting its development!
+
+<a href="https://razorpay.me/@srajanbansal">
+  <img src="https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F%20Support%20This%20Project-Razorpay-2962FF?style=for-the-badge&logo=razorpay&logoColor=white" alt="Support via Razorpay" height="50" />
+</a>
+
+<br><br>
+
+Your support keeps this project alive and ad-free. Every contribution helps!
+
+</div>
+
+---
 
 ## License
 
