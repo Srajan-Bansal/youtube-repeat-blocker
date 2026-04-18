@@ -691,10 +691,9 @@
     if (observer) observer.disconnect();
 
     const target =
-      document.querySelector("ytd-rich-grid-renderer #contents") ||
-      document.querySelector("ytd-rich-grid-renderer") ||
       document.querySelector("ytd-browse[page-subtype='home']") ||
       document.querySelector("#primary") ||
+      document.querySelector("ytd-rich-grid-renderer") ||
       document.body;
 
     log("Observing:", target.tagName, target.id || "");
@@ -749,6 +748,11 @@
     await loadSettings();
 
     if (isHomePage()) {
+      document.querySelectorAll("[data-ytf-processed]").forEach((el) => {
+        el.removeAttribute("data-ytf-processed");
+        el.classList.remove("ytf-hidden");
+      });
+      clearSidebar();
       showSidebar();
       applySidebarSettings(currentSettings);
       waitForFeedAndScan();
@@ -759,6 +763,10 @@
 
   document.addEventListener("yt-navigate-finish", () => {
     log("yt-navigate-finish");
+    onPageChange();
+  });
+  document.addEventListener("yt-page-data-updated", () => {
+    log("yt-page-data-updated");
     onPageChange();
   });
   window.addEventListener("popstate", () => {
