@@ -9,6 +9,15 @@
   let collapsedBadgeEl = null;
   let currentSettings = {};
 
+  // --- Context check ---
+  function isContextValid() {
+    try {
+      return !!chrome.runtime?.id;
+    } catch {
+      return false;
+    }
+  }
+
   // --- Debug logging ---
   function log(...args) {
     console.log("[YT Feed Filter]", ...args);
@@ -53,7 +62,6 @@
   // --- Content type detection ---
 
   function detectContentType(renderer) {
-    // Check for live / upcoming / premiere badges
     const badges = renderer.querySelectorAll(
       "ytd-badge-supported-renderer, .badge-style-type-live-now, .badge-style-type-upcoming, [overlay-style='UPCOMING'], [overlay-style='LIVE']"
     );
@@ -61,12 +69,10 @@
     badges.forEach((b) => badgeTexts.push(b.textContent?.trim().toLowerCase() || ""));
     const allBadgeText = badgeTexts.join(" ");
 
-    // Check overlay/thumbnail indicators
     const overlayText = (
       renderer.querySelector("ytd-thumbnail-overlay-time-status-renderer")?.getAttribute("overlay-style") || ""
     ).toLowerCase();
 
-    // Live stream (currently live)
     if (
       overlayText === "live" ||
       allBadgeText.includes("live") ||
@@ -75,7 +81,6 @@
       return "live";
     }
 
-    // Upcoming stream (scheduled)
     if (
       overlayText === "upcoming" ||
       allBadgeText.includes("upcoming") ||
@@ -85,7 +90,6 @@
       return "upcoming";
     }
 
-    // Premiere
     if (
       allBadgeText.includes("premiere") ||
       overlayText === "premiere" ||
@@ -94,7 +98,6 @@
       return "premiere";
     }
 
-    // Playlist / Mix
     const link = renderer.querySelector('a[href*="list="]');
     if (link) {
       return "playlist";
@@ -104,12 +107,9 @@
   }
 
   function isSubscribedChannel(renderer) {
-    // YouTube shows a notification bell or "subscribed" indicator for subscribed channels
-    // The owner text area sometimes has a subscriber badge
     const subscribedBadge = renderer.querySelector(
       'button[aria-label*="notification" i], .ytd-subscription-notification-toggle-button-renderer'
     );
-    // Also check for the verified/subscribed indicator dot
     const ownerBadges = renderer.querySelectorAll("ytd-badge-supported-renderer");
     for (const badge of ownerBadges) {
       const label = badge.getAttribute("aria-label")?.toLowerCase() || "";
@@ -130,12 +130,88 @@
     return false;
   }
 
+  // --- Feature 1: Keyword blocking ---
+
+  function isKeywordBlocked(title, keywords) {
+    if (!title || !keywords || keywords.length === 0) return false;
+    const lower = title.toLowerCase();
+    return keywords.some((kw) => lower.includes(kw.toLowerCase()));
+  }
+
+  // --- Feature 6: Category detection ---
+
+  function detectCategory(renderer) {
+    const categories = [];
+
+    // Shorts detection
+    const shortsLink = renderer.querySelector('a[href*="/shorts/"]');
+    const overlayStyle = renderer.querySelector("ytd-thumbnail-overlay-time-status-renderer")?.getAttribute("overlay-style") || "";
+    if (shortsLink || overlayStyle.toUpperCase() === "SHORTS") {
+      categories.push("shorts");
+    }
+
+    // Check badge text for category hints
+    const badges = renderer.querySelectorAll("ytd-badge-supported-renderer");
+    const allBadgeText = Array.from(badges).map(b => b.textContent?.trim().toLowerCase() || "").join(" ");
+
+    // Music detection
+    if (
+      allBadgeText.includes("music") ||
+      renderer.querySelector('[badge-style*="MUSIC" i]') ||
+      renderer.querySelector('a[href*="music.youtube.com"]')
+    ) {
+      categories.push("music");
+    }
+
+    // Gaming detection
+    if (
+      allBadgeText.includes("gaming") ||
+      renderer.querySelector('[badge-style*="GAMING" i]')
+    ) {
+      categories.push("gaming");
+    }
+
+    // News detection
+    if (
+      allBadgeText.includes("news") ||
+      renderer.querySelector('[badge-style*="NEWS" i]')
+    ) {
+      categories.push("news");
+    }
+
+    // Sports detection
+    if (
+      allBadgeText.includes("sports") ||
+      allBadgeText.includes("sport") ||
+      renderer.querySelector('[badge-style*="SPORTS" i]')
+    ) {
+      categories.push("sports");
+    }
+
+    return categories;
+  }
+
+  function isCategoryBlocked(renderer, settings) {
+    const blocked = settings.blockedCategories || {};
+    const categories = detectCategory(renderer);
+
+    for (const cat of categories) {
+      if (blocked[cat]) return cat;
+    }
+    return null;
+  }
+
   // --- Apply settings to sidebar appearance ---
 
   async function loadSettings() {
-    const { settings = {} } = await chrome.storage.local.get("settings");
-    currentSettings = settings;
-    return settings;
+    if (!isContextValid()) return {};
+    try {
+      const { settings = {} } = await chrome.storage.local.get("settings");
+      currentSettings = settings;
+      return settings;
+    } catch {
+      return {};
+    }
   }
 
   function applySidebarSettings(settings) {
@@ -158,6 +234,10 @@
     if (theme === "light") sidebarEl.classList.add("ytf-theme-light");
     else if (theme === "dark") sidebarEl.classList.add("ytf-theme-dark");
 
+    // Accent color
+    const accent = settings.accentColor || "#c62828";
+    sidebarEl.style.setProperty("--ytf-accent", accent);
+
     // Auto-collapse
     if (settings.autoCollapse && !sidebarEl.dataset.userToggled) {
       sidebarEl.classList.add("ytf-collapsed");
@@ -170,6 +250,49 @@
     }
   }
 
+  // --- Feature 2: Sidebar sorting ---
+
+  function sortSidebarCards(sortBy) {
+    if (!sidebarListEl) return;
+    const cards = Array.from(sidebarListEl.querySelectorAll(".ytf-sidebar-card"));
+    if (cards.length === 0) return;
+
+    cards.sort((a, b) => {
+      switch (sortBy) {
+        case "count":
+          return (parseInt(b.dataset.count) || 0) - (parseInt(a.dataset.count) || 0);
+        case "date":
+          return (parseInt(b.dataset.lastSeen) || 0) - (parseInt(a.dataset.lastSeen) || 0);
+        case "channel":
+          return (a.dataset.channel || "").localeCompare(b.dataset.channel || "");
+        default:
+          return 0;
+      }
+    });
+
+    for (const card of cards) {
+      sidebarListEl.appendChild(card);
+    }
+  }
+
+  // --- Feature 3: Sidebar search filtering ---
+
+  function filterSidebarCards(query) {
+    if (!sidebarListEl) return;
+    const cards = sidebarListEl.querySelectorAll(".ytf-sidebar-card");
+    const lower = query.toLowerCase();
+
+    cards.forEach((card) => {
+      if (!lower) {
+        card.style.display = "";
+        return;
+      }
+      const title = (card.dataset.title || "").toLowerCase();
+      const channel = (card.dataset.channel || "").toLowerCase();
+      card.style.display = (title.includes(lower) || channel.includes(lower)) ? "" : "none";
+    });
+  }
+
   // --- Sidebar ---
 
   function createSidebar() {
@@ -178,12 +301,25 @@
     sidebarEl = document.createElement("div");
     sidebarEl.id = "ytf-sidebar";
 
+    const sortPref = currentSettings.sidebarSort || "count";
+
     sidebarEl.innerHTML = `
       <div class="ytf-sidebar-header">
         <span class="ytf-sidebar-header-text">Filtered (<span id="ytf-sidebar-count">0</span>)</span>
         <button class="ytf-sidebar-toggle" title="Collapse sidebar">&#x25B6;</button>
       </div>
       <div class="ytf-collapsed-badge" id="ytf-collapsed-badge">0</div>
+      <div class="ytf-sidebar-controls">
+        <div class="ytf-sidebar-search-wrap">
+          <input type="text" class="ytf-sidebar-search" placeholder="Search filtered videos..." />
+          <button class="ytf-sidebar-search-clear" title="Clear search">&times;</button>
+        </div>
+        <select class="ytf-sidebar-sort" title="Sort by">
+          <option value="count"${sortPref === "count" ? " selected" : ""}>Sort: Count</option>
+          <option value="date"${sortPref === "date" ? " selected" : ""}>Sort: Recent</option>
+          <option value="channel"${sortPref === "channel" ? " selected" : ""}>Sort: Channel</option>
+        </select>
+      </div>
       <div class="ytf-sidebar-list">
         <div class="ytf-sidebar-empty">No filtered videos yet.<br>Reload a few times!</div>
       </div>
@@ -217,6 +353,35 @@
       }
     });
 
+    // Feature 2: Sort dropdown
+    const sortSelect = sidebarEl.querySelector(".ytf-sidebar-sort");
+    sortSelect.addEventListener("change", () => {
+      const sortBy = sortSelect.value;
+      sortSidebarCards(sortBy);
+      // Persist sort preference
+      chrome.storage.local.get("settings", ({ settings = {} }) => {
+        settings.sidebarSort = sortBy;
+        chrome.storage.local.set({ settings });
+        currentSettings = settings;
+      });
+    });
+
+    // Feature 3: Search input
+    const searchInput = sidebarEl.querySelector(".ytf-sidebar-search");
+    const searchClear = sidebarEl.querySelector(".ytf-sidebar-search-clear");
+
+    searchInput.addEventListener("input", () => {
+      filterSidebarCards(searchInput.value);
+      searchClear.style.display = searchInput.value ? "block" : "none";
+    });
+
+    searchClear.addEventListener("click", () => {
+      searchInput.value = "";
+      filterSidebarCards("");
+      searchClear.style.display = "none";
+      searchInput.focus();
+    });
+
     applySidebarSettings(currentSettings);
     log("Sidebar created");
   }
@@ -239,14 +404,12 @@
     );
   }
 
-  function addToSidebar(videoId, entry) {
+  function addToSidebar(videoId, entry, reason = "") {
     if (!sidebarListEl) return;
 
-    // Remove empty state message
     const emptyMsg = sidebarListEl.querySelector(".ytf-sidebar-empty");
     if (emptyMsg) emptyMsg.remove();
 
-    // Don't add duplicates
     if (sidebarListEl.querySelector(`[data-video-id="${videoId}"]`)) return;
 
     const card = document.createElement("div");
@@ -255,6 +418,15 @@
 
     const title = entry.title || videoId;
     const channel = entry.channelName || "Unknown";
+    const countNum = typeof entry.count === "number" ? entry.count : 0;
+
+    // Data attributes for sorting & search
+    card.dataset.count = countNum;
+    card.dataset.lastSeen = entry.lastSeen || 0;
+    card.dataset.channel = channel;
+    card.dataset.title = title;
+
+    const countText = reason ? reason : `seen ${entry.count}x`;
 
     card.innerHTML = `
       <img class="ytf-sidebar-thumb" src="https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg" alt="" loading="lazy"
@@ -264,19 +436,20 @@
         <div class="ytf-sidebar-channel">${escapeHtml(channel)}</div>
       </div>
       <div class="ytf-sidebar-bottom">
-        <span class="ytf-sidebar-count">seen ${entry.count}x</span>
+        <span class="ytf-sidebar-count">${countText}</span>
         <button class="ytf-sidebar-restore" title="Stop filtering this video">Show</button>
       </div>
     `;
 
-    // Restore button
     card.querySelector(".ytf-sidebar-restore").addEventListener("click", () => {
-      chrome.storage.local.get("videoCounts", ({ videoCounts = {} }) => {
-        if (videoCounts[videoId]) {
-          videoCounts[videoId].clicked = true;
-          chrome.storage.local.set({ videoCounts });
-        }
-      });
+      try {
+        chrome.storage.local.get("videoCounts", ({ videoCounts = {} }) => {
+          if (videoCounts[videoId]) {
+            videoCounts[videoId].clicked = true;
+            chrome.storage.local.set({ videoCounts });
+          }
+        });
+      } catch {}
 
       const renderer = findRendererByVideoId(videoId);
       if (renderer) renderer.classList.remove("ytf-hidden");
@@ -290,7 +463,6 @@
       }
     });
 
-    // Click thumbnail/title to watch
     const thumb = card.querySelector(".ytf-sidebar-thumb");
     const titleEl = card.querySelector(".ytf-sidebar-title");
     for (const el of [thumb, titleEl]) {
@@ -302,6 +474,12 @@
 
     sidebarListEl.appendChild(card);
     updateSidebarCount();
+
+    // Apply current search filter to new card
+    const searchInput = sidebarEl?.querySelector(".ytf-sidebar-search");
+    if (searchInput && searchInput.value) {
+      filterSidebarCards(searchInput.value);
+    }
   }
 
   function removeFromSidebar(videoId) {
@@ -363,160 +541,137 @@
   // --- Core scan ---
 
   async function scanFeed({ skipCounting = false } = {}) {
-    if (!isHomePage()) return;
-
-    const allRenderers = document.querySelectorAll("ytd-rich-item-renderer");
-    const unprocessed = document.querySelectorAll(
-      "ytd-rich-item-renderer:not([data-ytf-processed])"
-    );
-
-    log(`Scan: ${allRenderers.length} total, ${unprocessed.length} new`);
-
-    if (unprocessed.length === 0 && !skipCounting) return;
-
-    const { videoCounts = {}, settings = {} } = await chrome.storage.local.get([
-      "videoCounts",
-      "settings",
-    ]);
-    currentSettings = settings;
-
-    const threshold = settings.threshold || 3;
-    const enabled = settings.enabled !== false;
-    const blockedChannels = settings.blockedChannels || [];
-    const now = Date.now();
-
-    const toProcess = skipCounting ? allRenderers : unprocessed;
-
-    for (const renderer of toProcess) {
-      renderer.setAttribute("data-ytf-processed", "true");
-      const videoId = extractVideoId(renderer);
-      if (!videoId) continue;
-
-      // Update count
-      if (!skipCounting && !countedThisSession.has(videoId)) {
-        countedThisSession.add(videoId);
-        const existing = videoCounts[videoId] || {
-          count: 0,
-          firstSeen: now,
-          clicked: false,
-        };
-        existing.count++;
-        existing.lastSeen = now;
-        const meta = extractMetadata(renderer);
-        existing.title = meta.title || existing.title || "";
-        existing.channelName = meta.channelName || existing.channelName || "";
-        videoCounts[videoId] = existing;
-        log(`Video "${existing.title}" (${videoId}): count=${existing.count}`);
-      }
-
-      const entry = videoCounts[videoId];
-      const channelName = entry?.channelName || "";
-
-      // Check if this content type is protected
-      const protected_ = isProtected(renderer, settings);
-
-      // Check if should be hidden: threshold reached OR channel blocked
-      const thresholdHit =
-        enabled && entry && entry.count >= threshold && !entry.clicked;
-      const channelBlocked =
-        enabled && isChannelBlocked(channelName, blockedChannels);
-
-      if ((thresholdHit || channelBlocked) && !protected_) {
-        renderer.classList.add("ytf-hidden");
-        const reason = channelBlocked
-          ? { ...entry, count: `blocked` }
-          : entry;
-        addToSidebar(videoId, reason, channelBlocked);
-        log(
-          `HIDDEN: "${entry?.title}" (${videoId}), ${channelBlocked ? "channel blocked" : "count=" + entry?.count}`
-        );
-      } else {
-        renderer.classList.remove("ytf-hidden");
-        removeFromSidebar(videoId);
-      }
-    }
-
-    const filteredCount = document.querySelectorAll(
-      "ytd-rich-item-renderer.ytf-hidden"
-    ).length;
-
-    if (!skipCounting) {
-      await chrome.storage.local.set({ videoCounts });
-      log(
-        `Saved ${Object.keys(videoCounts).length} videos. Filtered: ${filteredCount}`
-      );
-    }
-
+    if (!isHomePage() || !isContextValid()) return;
     try {
-      chrome.runtime.sendMessage({ type: "updateBadge", filteredCount });
-    } catch {}
-  }
+      const allRenderers = document.querySelectorAll("ytd-rich-item-renderer");
+      const unprocessed = document.querySelectorAll(
+        "ytd-rich-item-renderer:not([data-ytf-processed])"
+      );
 
-  // Override addToSidebar to handle blocked channels
-  const _origAddToSidebar = addToSidebar;
-  // Actually, let me just modify the card creation inline
+      log(`Scan: ${allRenderers.length} total, ${unprocessed.length} new`);
 
-  // Re-define addToSidebar with blocked support
-  function addToSidebar(videoId, entry, isBlocked = false) {
-    if (!sidebarListEl) return;
+      if (unprocessed.length === 0 && !skipCounting) return;
 
-    const emptyMsg = sidebarListEl.querySelector(".ytf-sidebar-empty");
-    if (emptyMsg) emptyMsg.remove();
+      const { videoCounts = {}, settings = {} } = await chrome.storage.local.get([
+        "videoCounts",
+        "settings",
+      ]);
+      currentSettings = settings;
 
-    if (sidebarListEl.querySelector(`[data-video-id="${videoId}"]`)) return;
+      const threshold = settings.threshold || 3;
+      const enabled = settings.enabled !== false;
+      const blockedChannels = settings.blockedChannels || [];
+      const blockedKeywords = settings.blockedKeywords || [];
+      const now = Date.now();
 
-    const card = document.createElement("div");
-    card.className = "ytf-sidebar-card";
-    card.dataset.videoId = videoId;
-
-    const title = entry.title || videoId;
-    const channel = entry.channelName || "Unknown";
-    const countText = isBlocked ? "blocked" : `seen ${entry.count}x`;
-
-    card.innerHTML = `
-      <img class="ytf-sidebar-thumb" src="https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg" alt="" loading="lazy"
-           onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'" />
-      <div class="ytf-sidebar-info">
-        <div class="ytf-sidebar-title" title="${escapeAttr(title)}">${escapeHtml(title)}</div>
-        <div class="ytf-sidebar-channel">${escapeHtml(channel)}</div>
-      </div>
-      <div class="ytf-sidebar-bottom">
-        <span class="ytf-sidebar-count">${countText}</span>
-        <button class="ytf-sidebar-restore" title="Stop filtering this video">Show</button>
-      </div>
-    `;
-
-    card.querySelector(".ytf-sidebar-restore").addEventListener("click", () => {
-      chrome.storage.local.get("videoCounts", ({ videoCounts = {} }) => {
-        if (videoCounts[videoId]) {
-          videoCounts[videoId].clicked = true;
-          chrome.storage.local.set({ videoCounts });
-        }
-      });
-
-      const renderer = findRendererByVideoId(videoId);
-      if (renderer) renderer.classList.remove("ytf-hidden");
-
-      card.remove();
-      updateSidebarCount();
-
-      if (!sidebarListEl.querySelector(".ytf-sidebar-card")) {
-        sidebarListEl.innerHTML =
-          '<div class="ytf-sidebar-empty">No filtered videos yet.<br>Reload a few times!</div>';
+      // Feature 6: Hide shorts shelf renderers if shorts blocked
+      if (enabled && settings.blockedCategories?.shorts) {
+        document.querySelectorAll("ytd-reel-shelf-renderer").forEach((shelf) => {
+          shelf.style.display = "none";
+        });
+      } else {
+        document.querySelectorAll("ytd-reel-shelf-renderer").forEach((shelf) => {
+          shelf.style.display = "";
+        });
       }
-    });
 
-    const thumb = card.querySelector(".ytf-sidebar-thumb");
-    const titleEl = card.querySelector(".ytf-sidebar-title");
-    for (const el of [thumb, titleEl]) {
-      el.style.cursor = "pointer";
-      el.addEventListener("click", () => {
-        window.location.href = `https://www.youtube.com/watch?v=${videoId}`;
-      });
+      const toProcess = skipCounting ? allRenderers : unprocessed;
+
+      for (const renderer of toProcess) {
+        renderer.setAttribute("data-ytf-processed", "true");
+        const videoId = extractVideoId(renderer);
+        if (!videoId) continue;
+
+        // Update count
+        if (!skipCounting && !countedThisSession.has(videoId)) {
+          countedThisSession.add(videoId);
+          const existing = videoCounts[videoId] || {
+            count: 0,
+            firstSeen: now,
+            clicked: false,
+          };
+          existing.count++;
+          existing.lastSeen = now;
+          const meta = extractMetadata(renderer);
+          existing.title = meta.title || existing.title || "";
+          existing.channelName = meta.channelName || existing.channelName || "";
+          videoCounts[videoId] = existing;
+          log(`Video "${existing.title}" (${videoId}): count=${existing.count}`);
+        }
+
+        const entry = videoCounts[videoId];
+        const channelName = entry?.channelName || "";
+        const title = entry?.title || "";
+
+        // Check if this content type is protected
+        const protected_ = isProtected(renderer, settings);
+
+        // Check blocking reasons
+        const thresholdHit =
+          enabled && entry && entry.count >= threshold && !entry.clicked;
+        const channelBlocked =
+          enabled && isChannelBlocked(channelName, blockedChannels);
+        const keywordBlocked =
+          enabled && isKeywordBlocked(title, blockedKeywords);
+        const categoryBlock =
+          enabled ? isCategoryBlocked(renderer, settings) : null;
+
+        // Keyword blocking and category blocking override content protection
+        const shouldHide =
+          (keywordBlocked || categoryBlock)
+            ? true
+            : ((thresholdHit || channelBlocked) && !protected_);
+
+        if (shouldHide) {
+          renderer.classList.add("ytf-hidden");
+          let reason = "";
+          if (categoryBlock) reason = categoryBlock;
+          else if (keywordBlocked) reason = "keyword";
+          else if (channelBlocked) reason = "blocked";
+          else reason = "";
+
+          const displayEntry = reason
+            ? { ...entry, count: entry?.count || 0 }
+            : entry;
+          const reasonText = reason
+            ? reason
+            : `seen ${entry?.count}x`;
+          addToSidebar(videoId, displayEntry, reasonText);
+          log(
+            `HIDDEN: "${title}" (${videoId}), reason: ${reason || "count=" + entry?.count}`
+          );
+        } else {
+          renderer.classList.remove("ytf-hidden");
+          removeFromSidebar(videoId);
+        }
+      }
+
+      const filteredCount = document.querySelectorAll(
+        "ytd-rich-item-renderer.ytf-hidden"
+      ).length;
+
+      if (!skipCounting) {
+        await chrome.storage.local.set({ videoCounts });
+        log(
+          `Saved ${Object.keys(videoCounts).length} videos. Filtered: ${filteredCount}`
+        );
+      }
+
+      // Sort after scan
+      const sortPref = settings.sidebarSort || "count";
+      sortSidebarCards(sortPref);
+
+      try {
+        chrome.runtime.sendMessage({ type: "updateBadge", filteredCount });
+      } catch {}
+    } catch (e) {
+      if (e.message?.includes("Extension context invalidated")) {
+        log("Extension context invalidated, stopping.");
+        stopObserver();
+      } else {
+        throw e;
+      }
     }
-
-    sidebarListEl.appendChild(card);
-    updateSidebarCount();
   }
 
   // --- Rescan ---
@@ -644,6 +799,7 @@
   // --- React to settings changes ---
 
   chrome.storage.onChanged.addListener((changes) => {
+    if (!isContextValid()) return;
     if (changes.settings) {
       loadSettings().then(() => {
         if (isHomePage()) {

@@ -17,6 +17,7 @@ body.ytf-sidebar-active #page-manager {
 
 /* === Sidebar Panel === */
 #ytf-sidebar {
+  --ytf-accent: #c62828;
   position: fixed;
   top: 56px; /* below YouTube top bar */
   right: 0;
@@ -110,6 +111,104 @@ html[dark] .ytf-sidebar-toggle {
 
 html[dark] .ytf-sidebar-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* === Sidebar Controls (Search + Sort) === */
+.ytf-sidebar-controls {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+html[dark] .ytf-sidebar-controls {
+  border-bottom-color: #333;
+}
+
+#ytf-sidebar.ytf-collapsed .ytf-sidebar-controls {
+  display: none;
+}
+
+/* Search */
+.ytf-sidebar-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ytf-sidebar-search {
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  background: #fff;
+  color: #333;
+}
+
+.ytf-sidebar-search:focus {
+  border-color: var(--ytf-accent, #c62828);
+}
+
+html[dark] .ytf-sidebar-search {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+html[dark] .ytf-sidebar-search:focus {
+  border-color: var(--ytf-accent, #c62828);
+}
+
+.ytf-sidebar-search-clear {
+  display: none;
+  position: absolute;
+  right: 4px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #999;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.ytf-sidebar-search-clear:hover {
+  color: #666;
+}
+
+html[dark] .ytf-sidebar-search-clear {
+  color: #777;
+}
+
+html[dark] .ytf-sidebar-search-clear:hover {
+  color: #bbb;
+}
+
+/* Sort */
+.ytf-sidebar-sort {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  outline: none;
+}
+
+.ytf-sidebar-sort:focus {
+  border-color: var(--ytf-accent, #c62828);
+}
+
+html[dark] .ytf-sidebar-sort {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
 }
 
 /* === Sidebar List === */
@@ -218,7 +317,7 @@ html[dark] .ytf-sidebar-channel {
 
 .ytf-sidebar-count {
   font-size: 11px;
-  color: #c62828;
+  color: var(--ytf-accent, #c62828);
   font-weight: 600;
 }
 
@@ -262,7 +361,7 @@ html[dark] .ytf-sidebar-restore:hover {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #c62828;
+  background: var(--ytf-accent, #c62828);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
@@ -350,6 +449,22 @@ body.ytf-sidebar-active.ytf-sidebar-left tp-yt-app-drawer {
 #ytf-sidebar.ytf-theme-dark .ytf-sidebar-restore {
   border-color: #555;
   color: #aaa;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-controls {
+  border-bottom-color: #333;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-search {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-sort {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
 }
 
 #ytf-sidebar.ytf-theme-light {

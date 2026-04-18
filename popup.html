@@ -11,6 +11,7 @@
         <div class="tabs">
           <button class="tab active" data-tab="dashboard">Dashboard</button>
           <button class="tab" data-tab="settings">Settings</button>
+          <button class="tab" data-tab="analytics">Analytics</button>
         </div>
       </div>
 
@@ -124,6 +125,62 @@
           </div>
         </div>
 
+        <!-- Category Blocking -->
+        <div class="setting-group">
+          <h3>Category Blocking</h3>
+          <p class="setting-desc" style="margin-bottom: 10px;">Always hide videos in these categories, regardless of protection settings.</p>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Shorts</span>
+              <span class="setting-desc">YouTube Shorts and short-form content</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-cat-shorts" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Music</span>
+              <span class="setting-desc">Music videos and tracks</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-cat-music" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Gaming</span>
+              <span class="setting-desc">Gaming content and streams</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-cat-gaming" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">News</span>
+              <span class="setting-desc">News and current events</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-cat-news" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Sports</span>
+              <span class="setting-desc">Sports content and highlights</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-cat-sports" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
         <!-- Sidebar -->
         <div class="setting-group">
           <h3>Sidebar</h3>
@@ -170,6 +227,13 @@
               <option value="dark">Dark</option>
             </select>
           </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Accent color</span>
+              <span class="setting-desc">Theme color used everywhere</span>
+            </div>
+            <input type="color" id="s-accent-color" class="color-input" value="#c62828" />
+          </div>
         </div>
 
         <!-- Data -->
@@ -180,13 +244,10 @@
               <span class="setting-label">Retention</span>
               <span class="setting-desc">Auto-delete data older than</span>
             </div>
-            <select id="s-retention" class="select-input">
-              <option value="7">7 days</option>
-              <option value="14">14 days</option>
-              <option value="30" selected>30 days</option>
-              <option value="60">60 days</option>
-              <option value="90">90 days</option>
-            </select>
+            <div class="retention-input-wrap">
+              <input type="number" id="s-retention" class="num-input" min="1" max="365" value="30" step="1" />
+              <span class="retention-unit">days</span>
+            </div>
           </div>
           <button id="reset-btn" class="danger-btn">Reset All Counts</button>
         </div>
@@ -201,6 +262,41 @@
           </div>
           <div id="blocked-list"></div>
         </div>
+
+        <!-- Blocked Keywords -->
+        <div class="setting-group">
+          <h3>Blocked Keywords</h3>
+          <p class="setting-desc" style="margin-bottom: 8px;">Videos with these words in the title are always hidden.</p>
+          <div class="blocked-input-row">
+            <input type="text" id="block-keyword-input" class="text-input" placeholder="Keyword or phrase" />
+            <button id="block-keyword-btn" class="small-btn">Block</button>
+          </div>
+          <div id="blocked-keywords-list"></div>
+        </div>
+      </div>
+
+      <!-- ===== Analytics Tab ===== -->
+      <div class="tab-content" id="tab-analytics">
+        <div class="analytics-summary">
+          <div class="stat-box">
+            <span class="stat-num stat-red" id="analytics-total">0</span>
+            <span class="stat-label">Total Filtered</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="analytics-today">0</span>
+            <span class="stat-label">Today</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="analytics-avg">0</span>
+            <span class="stat-label">Daily Avg</span>
+          </div>
+        </div>
+
+        <h2>Top 5 Filtered Channels</h2>
+        <div id="analytics-channels"></div>
+
+        <h2 style="margin-top: 14px;">Last 7 Days</h2>
+        <div id="analytics-chart" class="analytics-chart"></div>
       </div>
     </div>
     <script src="popup.js"></script>
