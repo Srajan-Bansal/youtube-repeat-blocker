@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>YT Feed Filter</h1>
+        <div class="tabs">
+          <button class="tab active" data-tab="dashboard">Dashboard</button>
+          <button class="tab" data-tab="settings">Settings</button>
+        </div>
+      </div>
+
+      <!-- ===== Dashboard Tab ===== -->
+      <div class="tab-content active" id="tab-dashboard">
+        <div class="stats">
+          <div class="stat-box">
+            <span class="stat-num" id="stat-tracked">0</span>
+            <span class="stat-label">Tracked</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num stat-red" id="stat-filtered">0</span>
+            <span class="stat-label">Filtered</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="stat-channels">0</span>
+            <span class="stat-label">Channels</span>
+          </div>
+        </div>
+
+        <h2>Top Ignored Videos</h2>
+        <div id="video-list"></div>
+      </div>
+
+      <!-- ===== Settings Tab ===== -->
+      <div class="tab-content" id="tab-settings">
+        <!-- Master toggle -->
+        <div class="setting-group">
+          <h3>General</h3>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Enable filtering</span>
+              <span class="setting-desc">Master on/off switch</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-enabled" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Threshold -->
+        <div class="setting-group">
+          <h3>Filter Threshold</h3>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Hide after <strong id="s-threshold-val">3</strong> appearances</span>
+              <span class="setting-desc">How many times a video must appear before filtering</span>
+            </div>
+          </div>
+          <input type="range" id="s-threshold" class="full-slider" min="2" max="50" value="3" />
+          <div class="slider-labels">
+            <span>2</span>
+            <span>50</span>
+          </div>
+        </div>
+
+        <!-- Content Protection -->
+        <div class="setting-group">
+          <h3>Never Filter</h3>
+          <p class="setting-desc" style="margin-bottom: 10px;">Protect these content types from being filtered, even if they exceed the threshold.</p>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Upcoming live streams</span>
+              <span class="setting-desc">Scheduled streams that haven't started</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-protect-upcoming" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Active live streams</span>
+              <span class="setting-desc">Currently broadcasting live</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-protect-live" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Premieres</span>
+              <span class="setting-desc">Scheduled video premieres</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-protect-premiere" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Playlists &amp; Mixes</span>
+              <span class="setting-desc">Playlist and mix recommendations</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-protect-playlist" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Subscribed channels</span>
+              <span class="setting-desc">Videos from channels you're subscribed to</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-protect-subscribed" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="setting-group">
+          <h3>Sidebar</h3>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Position</span>
+              <span class="setting-desc">Which side of the screen</span>
+            </div>
+            <select id="s-sidebar-position" class="select-input">
+              <option value="right">Right</option>
+              <option value="left">Left</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Default width</span>
+              <span class="setting-desc">Sidebar width in pixels</span>
+            </div>
+            <input type="number" id="s-sidebar-width" class="num-input" min="280" max="600" value="360" step="10" />
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Auto-collapse</span>
+              <span class="setting-desc">Start with sidebar collapsed</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="s-auto-collapse" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Appearance -->
+        <div class="setting-group">
+          <h3>Appearance</h3>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Theme</span>
+              <span class="setting-desc">Override sidebar theme</span>
+            </div>
+            <select id="s-theme" class="select-input">
+              <option value="auto">Auto (match YT)</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Data -->
+        <div class="setting-group">
+          <h3>Data</h3>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Retention</span>
+              <span class="setting-desc">Auto-delete data older than</span>
+            </div>
+            <select id="s-retention" class="select-input">
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30" selected>30 days</option>
+              <option value="60">60 days</option>
+              <option value="90">90 days</option>
+            </select>
+          </div>
+          <button id="reset-btn" class="danger-btn">Reset All Counts</button>
+        </div>
+
+        <!-- Blocked Channels -->
+        <div class="setting-group">
+          <h3>Blocked Channels</h3>
+          <p class="setting-desc" style="margin-bottom: 8px;">Videos from these channels are always hidden, regardless of count.</p>
+          <div class="blocked-input-row">
+            <input type="text" id="block-channel-input" class="text-input" placeholder="Channel name" />
+            <button id="block-channel-btn" class="small-btn">Block</button>
+          </div>
+          <div id="blocked-list"></div>
+        </div>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

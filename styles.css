@@ -1,0 +1,395 @@
+/* === Hide filtered videos from grid (removed from flow, no gaps) === */
+ytd-rich-item-renderer.ytf-hidden {
+  display: none !important;
+}
+
+/* === Force YouTube grid to keep 4 columns when sidebar is open === */
+body.ytf-sidebar-active ytd-rich-grid-renderer {
+  --ytd-rich-grid-items-per-row: 4 !important;
+  --ytd-rich-grid-posts-per-row: 4 !important;
+}
+
+/* === Push YouTube content left to make room for sidebar === */
+body.ytf-sidebar-active ytd-page-manager,
+body.ytf-sidebar-active #page-manager {
+  margin-right: 370px !important;
+}
+
+/* === Sidebar Panel === */
+#ytf-sidebar {
+  position: fixed;
+  top: 56px; /* below YouTube top bar */
+  right: 0;
+  width: 360px;
+  height: calc(100vh - 56px);
+  background: #f9f9f9;
+  border-left: 1px solid #e0e0e0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  font-family: "Roboto", Arial, sans-serif;
+  transition: width 0.2s ease, min-width 0.2s ease;
+  overflow: hidden;
+  resize: horizontal;
+  min-width: 300px;
+  max-width: 600px;
+  direction: rtl; /* makes resize handle appear on the left edge */
+}
+
+/* Reset text direction inside */
+#ytf-sidebar > * {
+  direction: ltr;
+}
+
+#ytf-sidebar.ytf-collapsed {
+  width: 40px !important;
+  min-width: 40px !important;
+  resize: none;
+}
+
+body.ytf-sidebar-collapsed ytd-page-manager,
+body.ytf-sidebar-collapsed #page-manager {
+  margin-right: 50px !important;
+}
+
+/* Dark mode */
+html[dark] #ytf-sidebar {
+  background: #1a1a1a;
+  border-left-color: #333;
+}
+
+/* === Sidebar Header === */
+.ytf-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+html[dark] .ytf-sidebar-header {
+  border-bottom-color: #333;
+}
+
+.ytf-sidebar-header-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+html[dark] .ytf-sidebar-header-text {
+  color: #e0e0e0;
+}
+
+#ytf-sidebar.ytf-collapsed .ytf-sidebar-header-text {
+  display: none;
+}
+
+.ytf-sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ytf-sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+html[dark] .ytf-sidebar-toggle {
+  color: #aaa;
+}
+
+html[dark] .ytf-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* === Sidebar List === */
+.ytf-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+#ytf-sidebar.ytf-collapsed .ytf-sidebar-list {
+  display: none;
+}
+
+/* === Sidebar Card — vertical layout with big thumbnail === */
+.ytf-sidebar-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  cursor: default;
+  overflow: hidden;
+  transition: background 0.15s;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+html[dark] .ytf-sidebar-card {
+  background: #222;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.ytf-sidebar-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+html[dark] .ytf-sidebar-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Big thumbnail — full width, 16:9 aspect ratio */
+.ytf-sidebar-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  object-fit: cover;
+  display: block;
+  background: #ddd;
+  cursor: pointer;
+}
+
+html[dark] .ytf-sidebar-thumb {
+  background: #333;
+}
+
+/* Info section below thumbnail */
+.ytf-sidebar-info {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ytf-sidebar-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #111;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.ytf-sidebar-title:hover {
+  color: #065fd4;
+}
+
+html[dark] .ytf-sidebar-title {
+  color: #f1f1f1;
+}
+
+html[dark] .ytf-sidebar-title:hover {
+  color: #3ea6ff;
+}
+
+.ytf-sidebar-channel {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[dark] .ytf-sidebar-channel {
+  color: #aaa;
+}
+
+/* Bottom row: count badge + restore button */
+.ytf-sidebar-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 10px;
+}
+
+.ytf-sidebar-count {
+  font-size: 11px;
+  color: #c62828;
+  font-weight: 600;
+}
+
+.ytf-sidebar-restore {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 14px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.ytf-sidebar-restore:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html[dark] .ytf-sidebar-restore {
+  border-color: #555;
+  color: #aaa;
+}
+
+html[dark] .ytf-sidebar-restore:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* === Empty state === */
+.ytf-sidebar-empty {
+  text-align: center;
+  color: #999;
+  padding: 32px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* === Collapsed badge === */
+.ytf-collapsed-badge {
+  display: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #c62828;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  margin: 8px auto 0;
+}
+
+#ytf-sidebar.ytf-collapsed .ytf-collapsed-badge {
+  display: flex;
+}
+
+/* === Left sidebar position === */
+#ytf-sidebar.ytf-sidebar-left {
+  right: auto;
+  left: 0;
+  border-left: none;
+  border-right: 1px solid #e0e0e0;
+  direction: ltr;
+  resize: horizontal;
+}
+
+html[dark] #ytf-sidebar.ytf-sidebar-left {
+  border-right-color: #333;
+}
+
+body.ytf-sidebar-active.ytf-sidebar-left ytd-page-manager,
+body.ytf-sidebar-active.ytf-sidebar-left #page-manager {
+  margin-right: 0 !important;
+  margin-left: 370px !important;
+}
+
+body.ytf-sidebar-collapsed.ytf-sidebar-left ytd-page-manager,
+body.ytf-sidebar-collapsed.ytf-sidebar-left #page-manager {
+  margin-right: 0 !important;
+  margin-left: 50px !important;
+}
+
+/* Also shift the YouTube guide (left nav) when sidebar is on the left */
+body.ytf-sidebar-active.ytf-sidebar-left #guide,
+body.ytf-sidebar-active.ytf-sidebar-left tp-yt-app-drawer {
+  display: none !important;
+}
+
+/* === Theme overrides === */
+#ytf-sidebar.ytf-theme-dark {
+  background: #1a1a1a !important;
+  border-left-color: #333 !important;
+  border-right-color: #333 !important;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-header {
+  border-bottom-color: #333;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-header-text {
+  color: #e0e0e0;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-toggle {
+  color: #aaa;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-card {
+  background: #222;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-thumb {
+  background: #333;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-title {
+  color: #f1f1f1;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-title:hover {
+  color: #3ea6ff;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-channel {
+  color: #aaa;
+}
+
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-restore {
+  border-color: #555;
+  color: #aaa;
+}
+
+#ytf-sidebar.ytf-theme-light {
+  background: #f9f9f9 !important;
+  border-left-color: #e0e0e0 !important;
+  border-right-color: #e0e0e0 !important;
+}
+
+#ytf-sidebar.ytf-theme-light .ytf-sidebar-header {
+  border-bottom-color: #e0e0e0;
+}
+
+#ytf-sidebar.ytf-theme-light .ytf-sidebar-header-text {
+  color: #333;
+}
+
+#ytf-sidebar.ytf-theme-light .ytf-sidebar-card {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+#ytf-sidebar.ytf-theme-light .ytf-sidebar-title {
+  color: #111;
+}
+
+#ytf-sidebar.ytf-theme-light .ytf-sidebar-channel {
+  color: #666;
+}
+
+/* === Scrollbar styling === */
+.ytf-sidebar-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ytf-sidebar-list::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+html[dark] .ytf-sidebar-list::-webkit-scrollbar-thumb,
+#ytf-sidebar.ytf-theme-dark .ytf-sidebar-list::-webkit-scrollbar-thumb {
+  background: #444;
+}
