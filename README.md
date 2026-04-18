@@ -97,7 +97,7 @@ This extension:
 
 If this extension saves you from YouTube recommendation fatigue, consider supporting its development:
 
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/Srajan-Bansal)
+[![Support via Razorpay](https://img.shields.io/badge/Support-Razorpay-2962FF?logo=razorpay&logoColor=white)](https://razorpay.me/@srajanbansal)
 
 ## License
 
