@@ -8,6 +8,11 @@
   let sidebarCountEl = null;
   let collapsedBadgeEl = null;
   let currentSettings = {};
+  let cachedVideoCounts = null;
+  let videoCountsDirty = false;
+  let saveTimer = null;
+  let pageChangeTimer = null;
+  let isFlushing = false;
 
   // --- Context check ---
   function isContextValid() {
@@ -59,127 +64,96 @@
     };
   }
 
-  // --- Content type detection ---
+  // --- Cached videoCounts ---
 
-  function detectContentType(renderer) {
-    const badges = renderer.querySelectorAll(
-      "ytd-badge-supported-renderer, .badge-style-type-live-now, .badge-style-type-upcoming, [overlay-style='UPCOMING'], [overlay-style='LIVE']"
-    );
+  async function loadVideoCounts() {
+    if (cachedVideoCounts) return cachedVideoCounts;
+    if (!isContextValid()) return {};
+    try {
+      const { videoCounts = {} } = await chrome.storage.local.get("videoCounts");
+      cachedVideoCounts = videoCounts;
+      return cachedVideoCounts;
+    } catch {
+      return {};
+    }
+  }
+
+  function markVideoCountsDirty() {
+    videoCountsDirty = true;
+    if (!saveTimer) {
+      saveTimer = setTimeout(flushVideoCounts, 2000);
+    }
+  }
+
+  async function flushVideoCounts() {
+    saveTimer = null;
+    if (!videoCountsDirty || !cachedVideoCounts || !isContextValid()) return;
+    videoCountsDirty = false;
+    isFlushing = true;
+    try {
+      await chrome.storage.local.set({ videoCounts: cachedVideoCounts });
+      log(`Saved ${Object.keys(cachedVideoCounts).length} videos.`);
+    } catch { }
+    isFlushing = false;
+  }
+
+  // --- Combined renderer analysis (single badge query pass) ---
+
+  function analyzeRenderer(renderer) {
+    const badges = renderer.querySelectorAll("ytd-badge-supported-renderer");
     const badgeTexts = [];
-    badges.forEach((b) => badgeTexts.push(b.textContent?.trim().toLowerCase() || ""));
+    for (const b of badges) {
+      badgeTexts.push(b.textContent?.trim().toLowerCase() || "");
+    }
     const allBadgeText = badgeTexts.join(" ");
 
-    const overlayText = (
-      renderer.querySelector("ytd-thumbnail-overlay-time-status-renderer")?.getAttribute("overlay-style") || ""
-    ).toLowerCase();
+    const overlayEl = renderer.querySelector("ytd-thumbnail-overlay-time-status-renderer");
+    const overlayStyle = (overlayEl?.getAttribute("overlay-style") || "").toLowerCase();
+
+    // --- Content type ---
+    let contentType = "video";
 
     if (
-      overlayText === "live" ||
+      overlayStyle === "live" ||
       allBadgeText.includes("live") ||
-      renderer.querySelector('[aria-label*="LIVE" i], .badge-style-type-live-now-alternate')
+      renderer.querySelector('[aria-label*="LIVE" i], .badge-style-type-live-now, .badge-style-type-live-now-alternate')
     ) {
-      return "live";
-    }
-
-    if (
-      overlayText === "upcoming" ||
+      contentType = "live";
+    } else if (
+      overlayStyle === "upcoming" ||
       allBadgeText.includes("upcoming") ||
       allBadgeText.includes("scheduled") ||
       renderer.querySelector('[overlay-style="UPCOMING"]')
     ) {
-      return "upcoming";
-    }
-
-    if (
+      contentType = "upcoming";
+    } else if (
       allBadgeText.includes("premiere") ||
-      overlayText === "premiere" ||
+      overlayStyle === "premiere" ||
       renderer.querySelector('[aria-label*="Premiere" i]')
     ) {
-      return "premiere";
+      contentType = "premiere";
+    } else if (renderer.querySelector('a[href*="list="]')) {
+      contentType = "playlist";
     }
 
-    const link = renderer.querySelector('a[href*="list="]');
-    if (link) {
-      return "playlist";
-    }
-
-    return "video";
-  }
-
-  function isSubscribedChannel(renderer) {
-    const subscribedBadge = renderer.querySelector(
-      'button[aria-label*="notification" i], .ytd-subscription-notification-toggle-button-renderer'
-    );
-    const ownerBadges = renderer.querySelectorAll("ytd-badge-supported-renderer");
-    for (const badge of ownerBadges) {
-      const label = badge.getAttribute("aria-label")?.toLowerCase() || "";
-      if (label.includes("subscribed")) return true;
-    }
-    return !!subscribedBadge;
-  }
-
-  function isProtected(renderer, settings) {
-    const type = detectContentType(renderer);
-
-    if (type === "upcoming" && settings.protectUpcoming !== false) return true;
-    if (type === "live" && settings.protectLive !== false) return true;
-    if (type === "premiere" && settings.protectPremiere !== false) return true;
-    if (type === "playlist" && settings.protectPlaylist !== false) return true;
-    if (settings.protectSubscribed !== false && isSubscribedChannel(renderer)) return true;
-
-    return false;
-  }
-
-  // --- Feature 1: Keyword blocking ---
-
-  function isKeywordBlocked(title, keywords) {
-    if (!title || !keywords || keywords.length === 0) return false;
-    const lower = title.toLowerCase();
-    return keywords.some((kw) => lower.includes(kw.toLowerCase()));
-  }
-
-  // --- Feature 6: Category detection ---
-
-  function detectCategory(renderer) {
+    // --- Categories ---
     const categories = [];
 
-    // Shorts detection
-    const shortsLink = renderer.querySelector('a[href*="/shorts/"]');
-    const overlayStyle = renderer.querySelector("ytd-thumbnail-overlay-time-status-renderer")?.getAttribute("overlay-style") || "";
-    if (shortsLink || overlayStyle.toUpperCase() === "SHORTS") {
+    if (renderer.querySelector('a[href*="/shorts/"]') || overlayStyle === "shorts") {
       categories.push("shorts");
     }
-
-    // Check badge text for category hints
-    const badges = renderer.querySelectorAll("ytd-badge-supported-renderer");
-    const allBadgeText = Array.from(badges).map(b => b.textContent?.trim().toLowerCase() || "").join(" ");
-
-    // Music detection
     if (
       allBadgeText.includes("music") ||
-      renderer.querySelector('[badge-style*="MUSIC" i]') ||
-      renderer.querySelector('a[href*="music.youtube.com"]')
+      renderer.querySelector('[badge-style*="MUSIC" i], a[href*="music.youtube.com"]')
     ) {
       categories.push("music");
     }
-
-    // Gaming detection
-    if (
-      allBadgeText.includes("gaming") ||
-      renderer.querySelector('[badge-style*="GAMING" i]')
-    ) {
+    if (allBadgeText.includes("gaming") || renderer.querySelector('[badge-style*="GAMING" i]')) {
       categories.push("gaming");
     }
-
-    // News detection
-    if (
-      allBadgeText.includes("news") ||
-      renderer.querySelector('[badge-style*="NEWS" i]')
-    ) {
+    if (allBadgeText.includes("news") || renderer.querySelector('[badge-style*="NEWS" i]')) {
       categories.push("news");
     }
-
-    // Sports detection
     if (
       allBadgeText.includes("sports") ||
       allBadgeText.includes("sport") ||
@@ -188,17 +162,44 @@
       categories.push("sports");
     }
 
-    return categories;
+    // --- Subscribed check ---
+    let subscribed = !!renderer.querySelector(
+      'button[aria-label*="notification" i], .ytd-subscription-notification-toggle-button-renderer'
+    );
+    if (!subscribed) {
+      for (const badge of badges) {
+        const label = badge.getAttribute("aria-label")?.toLowerCase() || "";
+        if (label.includes("subscribed")) { subscribed = true; break; }
+      }
+    }
+
+    return { contentType, categories, subscribed };
   }
 
-  function isCategoryBlocked(renderer, settings) {
-    const blocked = settings.blockedCategories || {};
-    const categories = detectCategory(renderer);
+  function isProtectedFromAnalysis(analysis, settings) {
+    const { contentType, subscribed } = analysis;
+    if (contentType === "upcoming" && settings.protectUpcoming !== false) return true;
+    if (contentType === "live" && settings.protectLive !== false) return true;
+    if (contentType === "premiere" && settings.protectPremiere !== false) return true;
+    if (contentType === "playlist" && settings.protectPlaylist !== false) return true;
+    if (settings.protectSubscribed !== false && subscribed) return true;
+    return false;
+  }
 
-    for (const cat of categories) {
+  function getCategoryBlock(analysis, settings) {
+    const blocked = settings.blockedCategories || {};
+    for (const cat of analysis.categories) {
       if (blocked[cat]) return cat;
     }
     return null;
+  }
+
+  // --- Feature 1: Keyword blocking ---
+
+  function isKeywordBlocked(title, keywords) {
+    if (!title || !keywords || keywords.length === 0) return false;
+    const lower = title.toLowerCase();
+    return keywords.some((kw) => lower.includes(kw.toLowerCase()));
   }
 
   // --- Apply settings to sidebar appearance ---
@@ -442,14 +443,10 @@
     `;
 
     card.querySelector(".ytf-sidebar-restore").addEventListener("click", () => {
-      try {
-        chrome.storage.local.get("videoCounts", ({ videoCounts = {} }) => {
-          if (videoCounts[videoId]) {
-            videoCounts[videoId].clicked = true;
-            chrome.storage.local.set({ videoCounts });
-          }
-        });
-      } catch {}
+      if (cachedVideoCounts && cachedVideoCounts[videoId]) {
+        cachedVideoCounts[videoId].clicked = true;
+        markVideoCountsDirty();
+      }
 
       const renderer = findRendererByVideoId(videoId);
       if (renderer) renderer.classList.remove("ytf-hidden");
@@ -517,13 +514,12 @@
   }
 
   function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   function escapeAttr(str) {
     return str
+      .replace(/&/g, "&amp;")
       .replace(/"/g, "&quot;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
@@ -552,30 +548,25 @@
 
       if (unprocessed.length === 0 && !skipCounting) return;
 
-      const { videoCounts = {}, settings = {} } = await chrome.storage.local.get([
-        "videoCounts",
-        "settings",
-      ]);
-      currentSettings = settings;
+      const videoCounts = await loadVideoCounts();
+      const settings = currentSettings;
 
       const threshold = settings.threshold || 3;
       const enabled = settings.enabled !== false;
       const blockedChannels = settings.blockedChannels || [];
       const blockedKeywords = settings.blockedKeywords || [];
+      const shortsBlocked = enabled && settings.blockedCategories?.shorts;
       const now = Date.now();
 
       // Feature 6: Hide shorts shelf renderers if shorts blocked
-      if (enabled && settings.blockedCategories?.shorts) {
-        document.querySelectorAll("ytd-reel-shelf-renderer").forEach((shelf) => {
-          shelf.style.display = "none";
-        });
-      } else {
-        document.querySelectorAll("ytd-reel-shelf-renderer").forEach((shelf) => {
-          shelf.style.display = "";
-        });
+      const reelShelves = document.querySelectorAll("ytd-reel-shelf-renderer");
+      if (reelShelves.length > 0) {
+        const display = shortsBlocked ? "none" : "";
+        for (const shelf of reelShelves) shelf.style.display = display;
       }
 
       const toProcess = skipCounting ? allRenderers : unprocessed;
+      let cardsAdded = false;
 
       for (const renderer of toProcess) {
         renderer.setAttribute("data-ytf-processed", "true");
@@ -596,6 +587,7 @@
           existing.title = meta.title || existing.title || "";
           existing.channelName = meta.channelName || existing.channelName || "";
           videoCounts[videoId] = existing;
+          markVideoCountsDirty();
           log(`Video "${existing.title}" (${videoId}): count=${existing.count}`);
         }
 
@@ -603,8 +595,11 @@
         const channelName = entry?.channelName || "";
         const title = entry?.title || "";
 
+        // Single-pass analysis for content type, categories, subscribed
+        const analysis = analyzeRenderer(renderer);
+
         // Check if this content type is protected
-        const protected_ = isProtected(renderer, settings);
+        const protected_ = isProtectedFromAnalysis(analysis, settings);
 
         // Check blocking reasons
         const thresholdHit =
@@ -614,7 +609,7 @@
         const keywordBlocked =
           enabled && isKeywordBlocked(title, blockedKeywords);
         const categoryBlock =
-          enabled ? isCategoryBlocked(renderer, settings) : null;
+          enabled ? getCategoryBlock(analysis, settings) : null;
 
         // Keyword blocking and category blocking override content protection
         const shouldHide =
@@ -637,6 +632,7 @@
             ? reason
             : `seen ${entry?.count}x`;
           addToSidebar(videoId, displayEntry, reasonText);
+          cardsAdded = true;
           log(
             `HIDDEN: "${title}" (${videoId}), reason: ${reason || "count=" + entry?.count}`
           );
@@ -651,19 +647,18 @@
       ).length;
 
       if (!skipCounting) {
-        await chrome.storage.local.set({ videoCounts });
-        log(
-          `Saved ${Object.keys(videoCounts).length} videos. Filtered: ${filteredCount}`
-        );
+        log(`Filtered: ${filteredCount}`);
       }
 
-      // Sort after scan
-      const sortPref = settings.sidebarSort || "count";
-      sortSidebarCards(sortPref);
+      // Sort after scan only if new cards were added
+      if (cardsAdded) {
+        const sortPref = settings.sidebarSort || "count";
+        sortSidebarCards(sortPref);
+      }
 
       try {
         chrome.runtime.sendMessage({ type: "updateBadge", filteredCount });
-      } catch {}
+      } catch { }
     } catch (e) {
       if (e.message?.includes("Extension context invalidated")) {
         log("Extension context invalidated, stopping.");
@@ -738,12 +733,16 @@
     }, 500);
   }
 
-  // --- Page change ---
+  // --- Page change (debounced) ---
 
   async function onPageChange() {
     log("Page change. URL:", location.href, "isHome:", isHomePage());
     countedThisSession.clear();
     stopObserver();
+
+    // Flush pending writes before loading fresh data
+    await flushVideoCounts();
+    cachedVideoCounts = null;
 
     await loadSettings();
 
@@ -761,17 +760,20 @@
     }
   }
 
+  function debouncedPageChange(source) {
+    log(source);
+    clearTimeout(pageChangeTimer);
+    pageChangeTimer = setTimeout(() => onPageChange(), 50);
+  }
+
   document.addEventListener("yt-navigate-finish", () => {
-    log("yt-navigate-finish");
-    onPageChange();
+    debouncedPageChange("yt-navigate-finish");
   });
   document.addEventListener("yt-page-data-updated", () => {
-    log("yt-page-data-updated");
-    onPageChange();
+    debouncedPageChange("yt-page-data-updated");
   });
   window.addEventListener("popstate", () => {
-    log("popstate");
-    onPageChange();
+    debouncedPageChange("popstate");
   });
 
   log("Content script loaded. URL:", location.href);
@@ -793,13 +795,18 @@
         if (!videoId) return;
 
         log(`Clicked: ${videoId}`);
-        chrome.storage.local.get("videoCounts", ({ videoCounts = {} }) => {
-          if (videoCounts[videoId]) {
-            videoCounts[videoId].clicked = true;
-            chrome.storage.local.set({ videoCounts });
-          }
-        });
-      } catch {}
+        if (cachedVideoCounts && cachedVideoCounts[videoId]) {
+          cachedVideoCounts[videoId].clicked = true;
+          markVideoCountsDirty();
+        } else {
+          chrome.storage.local.get("videoCounts", ({ videoCounts = {} }) => {
+            if (videoCounts[videoId]) {
+              videoCounts[videoId].clicked = true;
+              chrome.storage.local.set({ videoCounts });
+            }
+          });
+        }
+      } catch { }
     },
     true
   );
@@ -816,6 +823,9 @@
         }
       });
     } else if (changes.videoCounts) {
+      // Ignore if we caused this write
+      if (videoCountsDirty || saveTimer || isFlushing) return;
+      cachedVideoCounts = null;
       if (isHomePage()) {
         rescanAll();
       }
