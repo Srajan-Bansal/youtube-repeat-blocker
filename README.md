@@ -21,8 +21,12 @@ YT Feed Filter tracks how many times each video appears on your homepage across 
 - **Click Detection** — If you click a video to watch it, it's permanently exempted from filtering
 - **Content Protection** — Never filters upcoming live streams, active streams, premieres, playlists, or videos from subscribed channels (all configurable)
 - **Channel Blocking** — Block specific channels to always hide their videos
+- **Keyword Blocking** — Block videos by keywords in the title
 - **Configurable Threshold** — Set how many appearances trigger filtering (2-50)
+- **Sidebar Search & Sort** — Search filtered videos and sort by count, date, or channel
 - **Sidebar Customization** — Position (left/right), resizable width, auto-collapse, theme override
+- **Accent Color** — Customize the theme accent color
+- **Analytics** — View filtering stats, top filtered channels, and a 7-day chart
 - **Dark Mode Support** — Automatically matches YouTube's theme
 - **No Data Collection** — Everything is stored locally in your browser
 
@@ -55,7 +59,7 @@ YT Feed Filter tracks how many times each video appears on your homepage across 
 
 ## Settings
 
-Click the extension icon to access the popup with two tabs:
+Click the extension icon to access the popup with three tabs:
 
 ### Dashboard
 - Total tracked / filtered / channels stats
@@ -76,7 +80,14 @@ Click the extension icon to access the popup with two tabs:
 | Auto-collapse | OFF | Start with sidebar collapsed |
 | Theme | Auto | Auto/Light/Dark |
 | Data retention | 30 days | Auto-cleanup old data |
+| Accent color | Red | Customize theme color |
 | Blocked channels | — | Always hide specific channels |
+| Blocked keywords | — | Always hide videos with matching title words |
+
+### Analytics
+- Total filtered / today's count / daily average
+- Top 5 filtered channels bar chart
+- Last 7 days activity chart
 
 ## Tech Stack
 
