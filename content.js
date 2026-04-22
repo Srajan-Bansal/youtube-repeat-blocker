@@ -136,32 +136,6 @@
       contentType = "playlist";
     }
 
-    // --- Categories ---
-    const categories = [];
-
-    if (renderer.querySelector('a[href*="/shorts/"]') || overlayStyle === "shorts") {
-      categories.push("shorts");
-    }
-    if (
-      allBadgeText.includes("music") ||
-      renderer.querySelector('[badge-style*="MUSIC" i], a[href*="music.youtube.com"]')
-    ) {
-      categories.push("music");
-    }
-    if (allBadgeText.includes("gaming") || renderer.querySelector('[badge-style*="GAMING" i]')) {
-      categories.push("gaming");
-    }
-    if (allBadgeText.includes("news") || renderer.querySelector('[badge-style*="NEWS" i]')) {
-      categories.push("news");
-    }
-    if (
-      allBadgeText.includes("sports") ||
-      allBadgeText.includes("sport") ||
-      renderer.querySelector('[badge-style*="SPORTS" i]')
-    ) {
-      categories.push("sports");
-    }
-
     // --- Subscribed check ---
     let subscribed = !!renderer.querySelector(
       'button[aria-label*="notification" i], .ytd-subscription-notification-toggle-button-renderer'
@@ -173,7 +147,7 @@
       }
     }
 
-    return { contentType, categories, subscribed };
+    return { contentType, subscribed };
   }
 
   function isProtectedFromAnalysis(analysis, settings) {
@@ -184,14 +158,6 @@
     if (contentType === "playlist" && settings.protectPlaylist !== false) return true;
     if (settings.protectSubscribed !== false && subscribed) return true;
     return false;
-  }
-
-  function getCategoryBlock(analysis, settings) {
-    const blocked = settings.blockedCategories || {};
-    for (const cat of analysis.categories) {
-      if (blocked[cat]) return cat;
-    }
-    return null;
   }
 
   // --- Feature 1: Keyword blocking ---
@@ -555,15 +521,7 @@
       const enabled = settings.enabled !== false;
       const blockedChannels = settings.blockedChannels || [];
       const blockedKeywords = settings.blockedKeywords || [];
-      const shortsBlocked = enabled && settings.blockedCategories?.shorts;
       const now = Date.now();
-
-      // Feature 6: Hide shorts shelf renderers if shorts blocked
-      const reelShelves = document.querySelectorAll("ytd-reel-shelf-renderer");
-      if (reelShelves.length > 0) {
-        const display = shortsBlocked ? "none" : "";
-        for (const shelf of reelShelves) shelf.style.display = display;
-      }
 
       const toProcess = skipCounting ? allRenderers : unprocessed;
       let cardsAdded = false;
@@ -595,7 +553,7 @@
         const channelName = entry?.channelName || "";
         const title = entry?.title || "";
 
-        // Single-pass analysis for content type, categories, subscribed
+        // Single-pass analysis for content type, subscribed
         const analysis = analyzeRenderer(renderer);
 
         // Check if this content type is protected
@@ -608,20 +566,17 @@
           enabled && isChannelBlocked(channelName, blockedChannels);
         const keywordBlocked =
           enabled && isKeywordBlocked(title, blockedKeywords);
-        const categoryBlock =
-          enabled ? getCategoryBlock(analysis, settings) : null;
 
-        // Keyword blocking and category blocking override content protection
+        // Keyword blocking overrides content protection
         const shouldHide =
-          (keywordBlocked || categoryBlock)
+          keywordBlocked
             ? true
             : ((thresholdHit || channelBlocked) && !protected_);
 
         if (shouldHide) {
           renderer.classList.add("ytf-hidden");
           let reason = "";
-          if (categoryBlock) reason = categoryBlock;
-          else if (keywordBlocked) reason = "keyword";
+          if (keywordBlocked) reason = "keyword";
           else if (channelBlocked) reason = "blocked";
           else reason = "";
 

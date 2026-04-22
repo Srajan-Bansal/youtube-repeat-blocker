@@ -39,13 +39,6 @@ const blockKeywordInput = document.getElementById("block-keyword-input");
 const blockKeywordBtn = document.getElementById("block-keyword-btn");
 const blockedKeywordsListEl = document.getElementById("blocked-keywords-list");
 
-// Category blocking elements
-const sCatShorts = document.getElementById("s-cat-shorts");
-const sCatMusic = document.getElementById("s-cat-music");
-const sCatGaming = document.getElementById("s-cat-gaming");
-const sCatNews = document.getElementById("s-cat-news");
-const sCatSports = document.getElementById("s-cat-sports");
-
 // Analytics elements
 const analyticsTotal = document.getElementById("analytics-total");
 const analyticsToday = document.getElementById("analytics-today");
@@ -81,14 +74,6 @@ async function load() {
   sProtectPremiere.checked = settings.protectPremiere !== false;
   sProtectPlaylist.checked = settings.protectPlaylist !== false;
   sProtectSubscribed.checked = settings.protectSubscribed !== false;
-
-  // Category blocking
-  const cats = settings.blockedCategories || {};
-  sCatShorts.checked = cats.shorts || false;
-  sCatMusic.checked = cats.music || false;
-  sCatGaming.checked = cats.gaming || false;
-  sCatNews.checked = cats.news || false;
-  sCatSports.checked = cats.sports || false;
 
   // Dashboard stats
   const entries = Object.entries(videoCounts);
@@ -320,13 +305,6 @@ async function saveSettings() {
     protectPremiere: sProtectPremiere.checked,
     protectPlaylist: sProtectPlaylist.checked,
     protectSubscribed: sProtectSubscribed.checked,
-    blockedCategories: {
-      shorts: sCatShorts.checked,
-      music: sCatMusic.checked,
-      gaming: sCatGaming.checked,
-      news: sCatNews.checked,
-      sports: sCatSports.checked,
-    },
   };
   await chrome.storage.local.set({ settings });
   load();
@@ -350,13 +328,6 @@ sProtectLive.addEventListener("change", saveSettings);
 sProtectPremiere.addEventListener("change", saveSettings);
 sProtectPlaylist.addEventListener("change", saveSettings);
 sProtectSubscribed.addEventListener("change", saveSettings);
-
-// Category blocking listeners
-sCatShorts.addEventListener("change", saveSettings);
-sCatMusic.addEventListener("change", saveSettings);
-sCatGaming.addEventListener("change", saveSettings);
-sCatNews.addEventListener("change", saveSettings);
-sCatSports.addEventListener("change", saveSettings);
 
 // Reset
 resetBtn.addEventListener("click", async () => {
